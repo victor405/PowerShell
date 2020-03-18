@@ -1,0 +1,135 @@
+class Result
+{
+	<#
+		# Author      : Victor Mendoza
+		# Version     : 1.0
+		# TestedIn    : Tested Successful in Windows PowerShell ISE - 5.1.18362.145
+		# Description : Takes in a Collections Arraylist (similar to a document)
+		#               and counts how many times each word appears in the document and 
+		#               which sentences the word appears in.
+	#>
+
+	# Generates Results
+	#
+	[void] generateReport([System.Collections.ArrayList] $inputLines)
+	{
+		[int] $SIZE = [int]($inputLines[0])
+		$inputLines.RemoveAt(0)
+
+		[string[]] $allWords = [Result]::getAllWords($inputLines)
+		[string[]] $uniqueWords = $allWords | Sort-Object -Unique | Where-Object { $_.length -gt 0 }
+		[hashtable] $uniqueWordsAndCount = [Result]::createWordsHashTable($uniqueWords,$allWords)
+		[string[]] $sentences = [Result]::getSentences($inputLines, $SIZE)
+
+		[Result]::printResults($uniqueWords,$sentences,$uniqueWordsAndCount)
+	}
+
+	# Creates a String Array with all of the words in the document
+	#
+	static [string[]] getAllWords([System.Collections.ArrayList] $input)
+	{
+		[string] $results = ""
+		[char[]] $allJoinedArr = ($input -join(" ")).ToCharArray()
+
+		foreach ($c in $allJoinedArr)
+		{
+			if ($c -match "[ a-zA-Z0-9]")
+			{
+				$results += $c
+			}
+		}
+		
+		return ($results.trim().split(" ") | Sort-Object)
+	}
+
+	# Creates a HashTable with the word and the n of times its in the document
+	#
+	static [hashtable] createWordsHashTable([string[]] $uniqueWords, [string[]] $allWords)
+	{
+		[hashtable] $results = @{}
+
+		foreach ($word in $uniqueWords)
+		{
+			$count = ($allWords | Where-Object { $_ -eq "$word" }).count
+			$results.Add($word,$count)
+		}
+
+		return $results
+	}
+
+	# Creates a String Array of all of the Sentences in the document
+	#
+	static [string[]] getSentences([System.Collections.ArrayList] $input, [int] $SIZE)
+	{
+		[string[]] $results = @()
+
+		for ([UInt16]$i = 0; $i -lt $SIZE; $i++)
+		{
+			[char[]] $charArr = $input[$i].ToCharArray()
+			[string] $str = ""
+
+			for ($j = 0; $j -lt $charArr.count; $j++)
+			{
+				if ($charArr[$j] -ne '.' -and $charArr[$j] -ne '?' -and $charArr[$j] -ne '!')
+				{
+					[int] $c = ([int]$charArr[$j])
+					[boolean] $isSpace = ($c -eq 32)
+					[boolean] $isNumber = ($c -ge 48 -and $c -le 57)
+					[boolean] $isLetter = (($c -ge 65 -and $c -le 90) -or ($c -ge 97 -and $c -le 122))
+
+					if ($isSpace -or $isNumber -or $isLetter)
+					{
+						$str += $charArr[$j]
+					}
+				}
+				else
+				{
+					$results += $str.Trim()
+					$str = ""
+				}
+			}
+		}
+
+		return $results
+	}
+
+	# Prints Results
+	#
+	static [void] printResults([string[]] $uniqueWords, [string[]] $sentences, [hashtable] $uniqueWordsAndCount)
+	{   
+		foreach ($word in $uniqueWords)
+		{
+			[string[]] $wordInSentenceCount = for (
+				$sentenceNumber = 0; $sentenceNumber -lt $sentences.count; $sentenceNumber++
+			)
+			{
+				[int] $count = ($sentences[$sentenceNumber].split(" ") `
+				| Where-Object { $_ -eq "$word" }).count
+
+				if ($count -gt 0)
+				{
+					for ($i = 0; $i -lt $count; $i++)
+					{
+						("$($sentenceNumber + 1)").trim()
+					}
+				}
+			}
+
+			$result = $word.ToLower() + ': {' + $uniqueWordsAndCount["$word"] + ':' + ($wordInSentenceCount -join(',')) + '}'
+
+			[console]::WriteLine($result)
+		}
+	}
+}
+
+# Sample PowerShell Collections ArrayList
+#
+$inputLines = [System.Collections.ArrayList]@()
+$inputLines.Add("2") | Out-Null
+$inputLines.Add("Wait a minute. Wait a minute, Doc.") | Out-Null
+$inputLines.Add("Are you telling me that you built a time machine out of a DeLorean?") | Out-Null
+
+# Testing PowerShell Code
+#
+$testPowerShellCode = [Result]::new()
+$testPowerShellCode.generateReport($inputLines)
